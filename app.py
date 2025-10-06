@@ -1,5 +1,9 @@
+# Install dependencies first:
+# pip install streamlit google-genai
+
 import streamlit as st
-import requests
+from google import genai
+from google.genai import types
 
 st.set_page_config(page_title="🛣️ NHAI Chatbot", page_icon="🛣️", layout="centered")
 
@@ -10,51 +14,51 @@ Ask anything about **NHAI (National Highways Authority of India)**:
 - Toll Info  
 - Policies & FAQs  
 
-This chatbot will answer questions using AI.
+The AI will answer questions strictly related to NHAI.
 """)
 
-# Your Gemini API Key
+# -------------------- Hardcoded API key --------------------
 API_KEY = "AIzaSyBbMy_RNIGMs1R33aBr0k-rdDCxkNYh-us"
 
-# Gemini endpoint
-GEMINI_ENDPOINT = f"https://generativelanguage.googleapis.com/v1beta2/models/chat-bison-001:generateMessage?key={API_KEY}"
+client = genai.Client(api_key=API_KEY)
 
-def query_gemini(prompt):
-    """
-    Send user query to Gemini API and get AI response.
-    Restrict answers to NHAI only via system prompt.
-    """
-    headers = {
-        "Content-Type": "application/json"
-    }
-
-    data = {
-        "prompt": {
-            "messages": [
-                {"author": "system", "content": "You are a helpful assistant that ONLY answers questions related to the National Highways Authority of India (NHAI). If the question is unrelated, politely say you cannot answer."},
-                {"author": "user", "content": prompt}
-            ]
-        },
-        "temperature": 0.2,
-        "candidate_count": 1,
-        "top_p": 0.95
-    }
-
-    response = requests.post(GEMINI_ENDPOINT, headers=headers, json=data)
-    if response.status_code == 200:
-        result = response.json()
-        try:
-            return result['candidates'][0]['content']
-        except:
-            return "Sorry, I couldn't process the response."
-    else:
-        return f"Error {response.status_code}: {response.text}"
-
-# -------------------- Streamlit Interface -------------------- #
+# -------------------- User input --------------------
 query = st.text_input("Enter your question about NHAI:")
 
 if query:
-    with st.spinner("Getting answer from AI..."):
-        answer = query_gemini(query)
-        st.success("Answer:")
-        st.write(answer)
+    with st.spinner("Generating answer..."):
+        # Create the content with system prompt
+        contents = [
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part.from_text(text=f"""
+You are a helpful assistant that ONLY answers questions related to the National Highways Authority of India (NHAI). 
+If the question is unrelated, politely say you cannot answer.
+User question: {query}
+""")
+                ],
+            )
+        ]
+
+        # Optional: no external tools
+        tools = []
+
+        # Generate content config
+        generate_content_config = types.GenerateContentConfig(
+            tools=tools,
+        )
+
+        # Stream response
+        answer_placeholder = st.empty()
+        full_answer = ""
+        try:
+            for chunk in client.models.generate_content_stream(
+                model="gemini-2.0-flash",
+                contents=contents,
+                config=generate_content_config,
+            ):
+                full_answer += chunk.text
+                answer_placeholder.markdown(full_answer)
+        except Exception as e:
+            st.error(f"Error: {e}")
