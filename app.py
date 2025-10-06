@@ -1,33 +1,23 @@
 import streamlit as st
-import requests
+from google.oauth2 import service_account
+from google.auth.transport.requests import AuthorizedSession
+import json
 
-st.set_page_config(page_title="🛣️ NHAI Chatbot", page_icon="🛣️", layout="centered")
+st.title("🛣️ NHAI Chatbot with Gemini")
 
-st.title("🛣️ NHAI Chatbot")
-st.markdown("""
-Ask anything about **NHAI (National Highways Authority of India)**:
-- Projects & Status  
-- Toll Info  
-- Policies & FAQs  
+# Load your service account JSON key
+SERVICE_ACCOUNT_FILE = "path_to_your_service_account.json"
 
-This chatbot will answer questions using AI.
-""")
+credentials = service_account.Credentials.from_service_account_file(
+    SERVICE_ACCOUNT_FILE,
+    scopes=["https://www.googleapis.com/auth/cloud-platform"]
+)
 
-# Your Gemini API Key
-API_KEY = "AIzaSyBbMy_RNIGMs1R33aBr0k-rdDCxkNYh-us"
+authed_session = AuthorizedSession(credentials)
 
-# Gemini endpoint (example)
 GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta2/models/chat-bison-001:generateMessage"
 
 def query_gemini(prompt):
-    """
-    Send user query to Gemini API and get AI response.
-    """
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json"
-    }
-
     data = {
         "prompt": {
             "messages": [
@@ -40,22 +30,21 @@ def query_gemini(prompt):
         "top_p": 0.95
     }
 
-    response = requests.post(GEMINI_ENDPOINT, headers=headers, json=data)
+    response = authed_session.post(GEMINI_ENDPOINT, json=data)
     if response.status_code == 200:
         result = response.json()
         try:
-            # Extract text from Gemini response
             return result['candidates'][0]['content']
         except:
-            return "Sorry, I couldn't process the response."
+            return "Error reading response."
     else:
         return f"Error {response.status_code}: {response.text}"
 
-# -------------------- Streamlit Interface -------------------- #
-query = st.text_input("Enter your question about NHAI:")
+# Streamlit interface
+query = st.text_input("Enter your NHAI question:")
 
 if query:
-    with st.spinner("Getting answer from AI..."):
+    with st.spinner("Getting AI answer..."):
         answer = query_gemini(query)
         st.success("Answer:")
         st.write(answer)
