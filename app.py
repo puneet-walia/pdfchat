@@ -1,27 +1,37 @@
 import streamlit as st
-from google.oauth2 import service_account
-from google.auth.transport.requests import AuthorizedSession
-import json
+import requests
 
-st.title("🛣️ NHAI Chatbot with Gemini")
+st.set_page_config(page_title="🛣️ NHAI Chatbot", page_icon="🛣️", layout="centered")
 
-# Load your service account JSON key
-SERVICE_ACCOUNT_FILE = "path_to_your_service_account.json"
+st.title("🛣️ NHAI Chatbot")
+st.markdown("""
+Ask anything about **NHAI (National Highways Authority of India)**:
+- Projects & Status  
+- Toll Info  
+- Policies & FAQs  
 
-credentials = service_account.Credentials.from_service_account_file(
-    SERVICE_ACCOUNT_FILE,
-    scopes=["https://www.googleapis.com/auth/cloud-platform"]
-)
+This chatbot will answer questions using AI.
+""")
 
-authed_session = AuthorizedSession(credentials)
+# Your Gemini API Key
+API_KEY = "AIzaSyBbMy_RNIGMs1R33aBr0k-rdDCxkNYh-us"
 
-GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta2/models/chat-bison-001:generateMessage"
+# Gemini endpoint
+GEMINI_ENDPOINT = f"https://generativelanguage.googleapis.com/v1beta2/models/chat-bison-001:generateMessage?key={API_KEY}"
 
 def query_gemini(prompt):
+    """
+    Send user query to Gemini API and get AI response.
+    Restrict answers to NHAI only via system prompt.
+    """
+    headers = {
+        "Content-Type": "application/json"
+    }
+
     data = {
         "prompt": {
             "messages": [
-                {"author": "system", "content": "You are a helpful assistant that only answers questions about NHAI."},
+                {"author": "system", "content": "You are a helpful assistant that ONLY answers questions related to the National Highways Authority of India (NHAI). If the question is unrelated, politely say you cannot answer."},
                 {"author": "user", "content": prompt}
             ]
         },
@@ -30,21 +40,21 @@ def query_gemini(prompt):
         "top_p": 0.95
     }
 
-    response = authed_session.post(GEMINI_ENDPOINT, json=data)
+    response = requests.post(GEMINI_ENDPOINT, headers=headers, json=data)
     if response.status_code == 200:
         result = response.json()
         try:
             return result['candidates'][0]['content']
         except:
-            return "Error reading response."
+            return "Sorry, I couldn't process the response."
     else:
         return f"Error {response.status_code}: {response.text}"
 
-# Streamlit interface
-query = st.text_input("Enter your NHAI question:")
+# -------------------- Streamlit Interface -------------------- #
+query = st.text_input("Enter your question about NHAI:")
 
 if query:
-    with st.spinner("Getting AI answer..."):
+    with st.spinner("Getting answer from AI..."):
         answer = query_gemini(query)
         st.success("Answer:")
         st.write(answer)
