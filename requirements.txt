@@ -1,4 +1,2 @@
 streamlit
-sentence-transformers
-torch
-wikipedia
+google-auth requests
